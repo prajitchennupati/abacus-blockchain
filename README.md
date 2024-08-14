@@ -1,4 +1,4 @@
-# abacus-v1.0
+# Abacus V1.0
 
 The Abacus blockchain is an up and coming system to transfer, store, and secure ABCs. The purpose of the blockchain is to create a foundation for third parties who may want to build their own blockchain. Essentially, Abacus is the starting point for all your needs; just like how the Abacus was the starting point for the modern day calculator.
 
