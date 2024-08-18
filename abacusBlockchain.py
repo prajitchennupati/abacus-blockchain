@@ -1,23 +1,18 @@
-import tkinter as tk
-from tkinter import messagebox, PhotoImage
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import secrets
 import decimal
 import hashlib
 import time
 
-# Configure the decimal module for high precision
+app = Flask(__name__)
+app.secret_key = 'your_secret_key_here'  # Replace with a secure key
+
+# Blockchain and Wallet logic
 decimal.getcontext().prec = 18
-
-DIFFICULTY = 4  # Number of leading zeros required in the hash
-TOTAL_SUPPLY = decimal.Decimal(10_000_000)  # Total cap of ABCs
-MINING_REWARD = decimal.Decimal(50)  # Reward per mined block (can be adjusted)
-UNLOCKED_SUPPLY = decimal.Decimal(1_000_000)  # Initially unlocked ABCs
-
-# Define color scheme
-BG_COLOR = "#1e2b39"  # Dark Blue
-BUTTON_COLOR = "#ff8c00"  # Orange
-FONT_COLOR = "#ffffff"  # White
-HIGHLIGHT_COLOR = "#ff4500"  # Highlight Orange
+DIFFICULTY = 4
+TOTAL_SUPPLY = decimal.Decimal(10_000_000)
+MINING_REWARD = decimal.Decimal(50)
+UNLOCKED_SUPPLY = decimal.Decimal(1_000_000)
 
 class Transaction:
     def __init__(self, sender, receiver, amount):
@@ -40,7 +35,7 @@ class Block:
         self.transactions = transactions
         self.previous_hash = previous_hash
         self.nonce = nonce
-        self.hash = None  # Initialize with None, will be set after creation
+        self.hash = None
 
     def compute_hash(self):
         block_string = str({
@@ -52,7 +47,6 @@ class Block:
         return hashlib.sha256(block_string).hexdigest()
 
     def mine_block(self, difficulty):
-        # Mining: finding a hash with a specific number of leading zeros
         self.nonce = 0
         computed_hash = self.compute_hash()
         while not computed_hash.startswith('0' * difficulty):
@@ -137,194 +131,89 @@ def transfer_funds(sender, receiver, amount, blockchain):
             return True
     return False
 
-class CryptoApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Abacus Cryptocurrency")
-        self.root.configure(bg=BG_COLOR)
+# Initialize Blockchain and Wallets
+blockchain = Blockchain()
 
-        # Blockchain and wallets initialization
-        self.blockchain = Blockchain()
-        self.wallets = []
-        self.logged_in_wallet = None
+# Abacus Wallet Initialization
+abacus_wallet = Wallet(
+    full_name="Abacus Wallet",
+    public_key="84a1651a95e3e92d6b4dfb3e0e79fdb5",
+    private_key="d97f0af4e834c5ae82f2ed6b962b952259f5c810f3b14cf6528dd06ae9aed599",
+    balance=1_000_000
+)
+wallets = [abacus_wallet]
 
-        # Abacus Wallet Initialization
-        self.abacus_wallet = Wallet(
-            full_name="Abacus Wallet",
-            public_key="84a1651a95e3e92d6b4dfb3e0e79fdb5",
-            private_key="d97f0af4e834c5ae82f2ed6b962b952259f5c810f3b14cf6528dd06ae9aed599",
-            balance=1_000_000
-        )
-        self.wallets.append(self.abacus_wallet)
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-        # Load icons/images
-        self.logo = PhotoImage(file="logo.png")  # Make sure you have a logo image file
-        self.coin_icon = PhotoImage(file="coin.png")  # Make sure you have a coin image file
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        public_key = request.form['public_key']
+        private_key = request.form['private_key']
+        global logged_in_wallet
+        logged_in_wallet = None
+        for wallet in wallets:
+            if wallet.check_credentials(public_key, private_key):
+                logged_in_wallet = wallet
+                session['public_key'] = public_key
+                return redirect(url_for('user_menu'))
+        flash("Invalid Public Key or Private Key.")
+    return render_template('login.html')
 
-        # Main Menu
-        self.main_menu()
-
-    def main_menu(self):
-        self.clear_screen()
-
-        tk.Label(self.root, text="Welcome to Abacus", font=("Helvetica", 24, "bold"), fg=HIGHLIGHT_COLOR, bg=BG_COLOR).pack(pady=20)
-        tk.Label(self.root, image=self.logo, bg=BG_COLOR).pack()
-
-        login_button = tk.Button(self.root, text="Log-in", command=self.login_screen, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        login_button.pack(pady=10)
-
-        signup_button = tk.Button(self.root, text="Sign up", command=self.signup_screen, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        signup_button.pack(pady=10)
-
-        view_blockchain_button = tk.Button(self.root, text="View Blockchain", command=self.view_blockchain, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        view_blockchain_button.pack(pady=10)
-
-        exit_button = tk.Button(self.root, text="Exit", command=self.root.quit, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        exit_button.pack(pady=10)
-
-    def login_screen(self):
-        self.clear_screen()
-
-        tk.Label(self.root, text="Log in to your account", font=("Helvetica", 20, "bold"), fg=HIGHLIGHT_COLOR, bg=BG_COLOR).pack(pady=20)
-
-        tk.Label(self.root, text="Public Key:", font=("Helvetica", 14), fg=FONT_COLOR, bg=BG_COLOR).pack()
-        public_key_entry = tk.Entry(self.root)
-        public_key_entry.pack(pady=5)
-
-        tk.Label(self.root, text="Private Key:", font=("Helvetica", 14), fg=FONT_COLOR, bg=BG_COLOR).pack()
-        private_key_entry = tk.Entry(self.root, show="*")
-        private_key_entry.pack(pady=5)
-
-        login_button = tk.Button(self.root, text="Log-in", command=lambda: self.login(public_key_entry.get(), private_key_entry.get()), bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        login_button.pack(pady=20)
-
-        back_button = tk.Button(self.root, text="Back", command=self.main_menu, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 14))
-        back_button.pack(pady=10)
-
-    def signup_screen(self):
-        self.clear_screen()
-
-        tk.Label(self.root, text="Create a new account", font=("Helvetica", 20, "bold"), fg=HIGHLIGHT_COLOR, bg=BG_COLOR).pack(pady=20)
-
-        tk.Label(self.root, text="Full Name:", font=("Helvetica", 14), fg=FONT_COLOR, bg=BG_COLOR).pack()
-        name_entry = tk.Entry(self.root)
-        name_entry.pack(pady=5)
-
-        signup_button = tk.Button(self.root, text="Sign up", command=lambda: self.create_account(name_entry.get()), bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        signup_button.pack(pady=20)
-
-        back_button = tk.Button(self.root, text="Back", command=self.main_menu, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 14))
-        back_button.pack(pady=10)
-
-    def create_account(self, full_name):
-        if not full_name:
-            messagebox.showerror("Error", "Full name is required.")
-            return
-
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        full_name = request.form['full_name']
         public_key, private_key = generate_key_pair()
         new_wallet = Wallet(full_name=full_name, public_key=public_key, private_key=private_key, balance=0)
-        self.wallets.append(new_wallet)
+        wallets.append(new_wallet)
+        flash(f"Account created. Public Key: {public_key}, Private Key: {private_key}. Save these keys securely!")
+        return redirect(url_for('index'))
+    return render_template('signup.html')
 
-        messagebox.showinfo("Account Created", f"Your account has been created.\nPublic Key: {public_key}\nPrivate Key: {private_key}\nSave these keys securely!")
-        self.main_menu()
+@app.route('/user_menu')
+def user_menu():
+    if 'public_key' not in session:
+        return redirect(url_for('index'))
+    wallet = find_wallet_by_public_key(session['public_key'])
+    return render_template('user_menu.html', wallet=wallet)
 
-    def login(self, public_key, private_key):
-        for wallet in self.wallets:
-            if wallet.check_credentials(public_key, private_key):
-                self.logged_in_wallet = wallet
-                self.user_menu()
-                return
-        messagebox.showerror("Error", "Invalid Public Key or Private Key.")
-        self.login_screen()
-
-    def user_menu(self):
-        self.clear_screen()
-
-        tk.Label(self.root, text=f"Welcome, {self.logged_in_wallet.full_name}", font=("Helvetica", 20, "bold"), fg=HIGHLIGHT_COLOR, bg=BG_COLOR).pack(pady=20)
-        tk.Label(self.root, image=self.coin_icon, bg=BG_COLOR).pack()
-
-        balance_button = tk.Button(self.root, text="Check Balance", command=self.display_balance, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        balance_button.pack(pady=10)
-
-        transfer_button = tk.Button(self.root, text="Transfer ABCs", command=self.transfer_screen, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        transfer_button.pack(pady=10)
-
-        view_blockchain_button = tk.Button(self.root, text="View Blockchain", command=self.view_blockchain, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        view_blockchain_button.pack(pady=10)
-
-        mine_button = tk.Button(self.root, text="Mine Block", command=self.mine_block, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        mine_button.pack(pady=10)
-
-        logout_button = tk.Button(self.root, text="Log-out", command=self.main_menu, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        logout_button.pack(pady=10)
-
-    def display_balance(self):
-        messagebox.showinfo("Balance", f"Current Balance: {self.logged_in_wallet.balance} ABCs")
-
-    def transfer_screen(self):
-        self.clear_screen()
-
-        tk.Label(self.root, text="Recipient's Public Key:", font=("Helvetica", 14), fg=FONT_COLOR, bg=BG_COLOR).pack()
-        recipient_entry = tk.Entry(self.root)
-        recipient_entry.pack(pady=5)
-
-        tk.Label(self.root, text="Amount to Transfer:", font=("Helvetica", 14), fg=FONT_COLOR, bg=BG_COLOR).pack()
-        amount_entry = tk.Entry(self.root)
-        amount_entry.pack(pady=5)
-
-        transfer_button = tk.Button(self.root, text="Transfer", command=lambda: self.transfer_funds(recipient_entry.get(), amount_entry.get()), bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 16))
-        transfer_button.pack(pady=20)
-
-        back_button = tk.Button(self.root, text="Back", command=self.user_menu, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 14))
-        back_button.pack(pady=10)
-
-    def transfer_funds(self, recipient_public_key, amount):
-        recipient_wallet = self.find_wallet_by_public_key(recipient_public_key)
-        if recipient_wallet:
-            try:
-                amount = decimal.Decimal(amount)
-                if amount <= 0:
-                    raise ValueError
-            except:
-                messagebox.showerror("Error", "Invalid amount.")
-                return
-
-            if transfer_funds(self.logged_in_wallet, recipient_wallet, amount, self.blockchain):
-                messagebox.showinfo("Success", f"Successfully transferred {amount} ABCs to {recipient_wallet.full_name}.")
-                self.user_menu()
-            else:
-                messagebox.showerror("Error", "Insufficient funds or transfer failed.")
+@app.route('/transfer', methods=['GET', 'POST'])
+def transfer():
+    if request.method == 'POST':
+        recipient_public_key = request.form['recipient_public_key']
+        amount = decimal.Decimal(request.form['amount'])
+        sender = find_wallet_by_public_key(session['public_key'])
+        recipient_wallet = find_wallet_by_public_key(recipient_public_key)
+        if recipient_wallet and transfer_funds(sender, recipient_wallet, amount, blockchain):
+            flash(f"Successfully transferred {amount} ABCs to {recipient_wallet.full_name}.")
         else:
-            messagebox.showerror("Error", "Recipient wallet does not exist.")
+            flash("Transfer failed. Check recipient wallet and amount.")
+    return render_template('transfer.html')
 
-    def mine_block(self):
-        if self.logged_in_wallet:
-            transactions = []
-            if self.blockchain.add_block(transactions, miner_wallet=self.logged_in_wallet):
-                messagebox.showinfo("Mining Successful", "Block successfully mined!")
-            else:
-                messagebox.showerror("Mining Failed", "Mining failed. Try again.")
-        self.user_menu()
+@app.route('/mine')
+def mine():
+    wallet = find_wallet_by_public_key(session['public_key'])
+    if wallet:
+        transactions = []
+        if blockchain.add_block(transactions, miner_wallet=wallet):
+            flash("Block successfully mined!")
+        else:
+            flash("Mining failed.")
+    return redirect(url_for('user_menu'))
 
-    def find_wallet_by_public_key(self, public_key):
-        for wallet in self.wallets:
-            if wallet.public_key == public_key:
-                return wallet
-        return None
+@app.route('/view_blockchain')
+def view_blockchain():
+    chain_info = blockchain.display_chain()
+    return render_template('blockchain.html', chain_info=chain_info)
 
-    def view_blockchain(self):
-        self.clear_screen()
-        chain_info = self.blockchain.display_chain()
-        tk.Label(self.root, text=chain_info, justify="left", fg=FONT_COLOR, bg=BG_COLOR, font=("Courier", 12)).pack()
+def find_wallet_by_public_key(public_key):
+    for wallet in wallets:
+        if wallet.public_key == public_key:
+            return wallet
+    return None
 
-        back_button = tk.Button(self.root, text="Back", command=self.main_menu, bg=BUTTON_COLOR, fg=FONT_COLOR, font=("Helvetica", 14))
-        back_button.pack(pady=10)
-
-    def clear_screen(self):
-        for widget in self.root.winfo_children():
-            widget.destroy()
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = CryptoApp(root)
-    root.mainloop()
+if __name__ == '__main__':
+    app.run(debug=True)
