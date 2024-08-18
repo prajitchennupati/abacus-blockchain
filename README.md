@@ -3,4 +3,4 @@
 Information will be updated shortly.
 
 CREDITS:
-- Prajit Chennupati @prajitchennupati
+- Prajit Chennupati github.com/prajitchennupati
