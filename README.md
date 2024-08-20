@@ -1,12 +1,20 @@
-# Abacus
+# Abacus V3.0.00
 ## The Future of Crypto
-
-"It is well enough that people of the nation do not understand our banking and monetary system, for if they did, I believe there would be a revolution before tomorrow morning." - Henry Ford
 
 Abacuses precursed calculators which themselves precursed computers. The Abacus blockchain is the precurser and bedrock for a powerful financial instrument.
 
 ### Features
-- Info coming soon.
+- Coming Soon
+
+### Improvements
+- More user friendly UI
+- Coming Soon
+
+### Upcoming
+- Abacus V3.5.00
+-   Fixed POW Mining System
+- Abacus V4.0.00
+-   Cloud Storage Capabilities Added
 
 ### Credits
 - Prajit Chennupati (https://github.com/prajitchennupati)
